@@ -1,17 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import FullCalendar, { EventApi, EventClickArg, EventContentArg } from '@fullcalendar/react';
-import interactionPlugin from '@fullcalendar/interaction'; // for drag-and-drop
+import interactionPlugin from '@fullcalendar/interaction';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import { Button, Modal, Form, Input, Select, notification } from 'antd';
-import './ScheduleManager.css'; // Assume appropriate CSS for layout and styling
+import './ScheduleManager.css';
+import { debounce } from 'lodash';
 
 const { Option } = Select;
 
 interface ScheduleEvent {
   id: string;
   title: string;
-  start: string; // ISO date string
-  end: string; // ISO date string
+  start: string;
+  end: string;
   participants?: string[];
 }
 
@@ -31,16 +32,24 @@ const ScheduleManager: React.FC = () => {
   const [selectedEvent, setSelectedEvent] = useState<EventApi | null>(null);
   const [participants, setParticipants] = useState<Participant[]>(initialParticipants);
 
-  // Load events from local storage or any API
   useEffect(() => {
-    // Here you can replace it with API call
-    const loadedEvents: ScheduleEvent[] = []; // Load from local storage or API
-    setEvents(loadedEvents);
+    async function fetchEvents() {
+      // Mock API Call
+      const loadedEvents: ScheduleEvent[] = []; // Replace with your fetching method
+      setEvents(loadedEvents);
+    }
+    fetchEvents();
   }, []);
+
+  useEffect(() => {
+    async function saveEvents() {
+      // Mock saving logic, replace with API call
+    }
+    saveEvents();
+  }, [events]);
 
   const onEventAdded = (event: ScheduleEvent) => {
     setEvents((prevEvents) => [...prevEvents, event]);
-    // Save to local storage or send to your API
   };
 
   const onEventClick = (clickInfo: EventClickArg) => {
@@ -48,14 +57,31 @@ const ScheduleManager: React.FC = () => {
     setModalVisible(true);
   };
 
+  // Debounce function to delay the execution
+  const debouncedEventUpdate = useCallback(debounce(async (event: ScheduleEvent) => {
+    // Implementation of API call to update the event in the backend
+    console.log('Event updated:', event); // Replace with actual API call
+  }, 1000), []); // 1000 ms delay
+
   const handleEventDrop = (event: EventApi) => {
-    // Logic to handle event drop for rescheduling
-    // Check for conflicts and optionally prompt the user
-    // Update the event in the state and backend
+    // Prepare the updated event data
+    const updatedEvent: ScheduleEvent = {
+      id: event.id,
+      title: event.title,
+      start: event.startStr,
+      end: event.endStr,
+    };
+
+    // Call the debounced function
+    debouncedEventUpdate(updatedEvent);
+
+    // Update the event locally (optional, could await API update)
+    setEvents((prevEvents) =>
+      prevEvents.map((evt) => (evt.id === event.id ? updatedEvent : evt)),
+    );
   };
 
   const handleOk = () => {
-    // Logic when modal OK is clicked
     setModalVisible(false);
   };
 
@@ -95,7 +121,7 @@ const ScheduleManager: React.FC = () => {
         >
           <Form layout="vertical">
             <Form.Item label="Event Title">
-              <Input  placeholder={selectedEvent.title}/>
+              <Input defaultValue={selectedEvent.title} />
             </Form.Item>
             <Form.Item label="Participants">
               <Select mode="multiple" placeholder="Select participants">
