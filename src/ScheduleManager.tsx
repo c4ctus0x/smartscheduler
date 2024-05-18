@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import FullCalendar, { EventApi, EventClickArg, EventContentArg } from '@fullcalendar/react';
+import FullCalendar, { EventApi, EventClickArg, EventContentArg, EventAddArg, DateSelectArg } from '@fullcalendar/react';
 import interactionPlugin from '@fullcalendar/interaction';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import { Button, Modal, Form, Input, Select, notification } from 'antd';
 import './ScheduleManager.css';
 import { debounce } from 'lodash';
+import { v4 as uuidv4 } from 'uuid'; 
 
 const { Option } = Select;
 
@@ -29,42 +30,55 @@ const initialParticipants: Participant[] = [
 const ScheduleManager: React.FC = () => {
   const [events, setEvents] = useState<ScheduleEvent[]>([]);
   const [modalVisible, setModalVisible] = useState(false);
-  const [selectedEvent, setSelectedEvent] = useState<EventApi | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<ScheduleEvent | null>(null);
   const [participants, setParticipants] = useState<Participant[]>(initialParticipants);
+  const [form] = Form.useForm();
 
   useEffect(() => {
-    async function fetchEvents() {
-      // Mock API Call
-      const loadedEvents: ScheduleEvent[] = []; // Replace with your fetching method
-      setEvents(loadedEvents);
-    }
-    fetchEvents();
+    
   }, []);
 
   useEffect(() => {
-    async function saveEvents() {
-      // Mock saving logic, replace with API call
-    }
-    saveEvents();
+    
   }, [events]);
 
-  const onEventAdded = (event: ScheduleEvent) => {
-    setEvents((prevEvents) => [...prevEvents, event]);
+  const onEventAdded = (selectInfo: DateSelectArg) => {
+    const title = prompt('Please enter a new title for your event');
+    const id = uuidv4(); 
+    const newEvent: ScheduleEvent = {
+      id,
+      title: title || 'New Event',
+      start: selectInfo.startStr,
+      end: selectInfo.endStr,
+    };
+
+    if (title) {
+      setEvents((prevEvents) => [...prevEvents, newEvent]);
+    }
   };
 
   const onEventClick = (clickInfo: EventClickArg) => {
-    setSelectedEvent(clickInfo.event);
+    const clickedEvent: ScheduleEvent = {
+      id: clickInfo.event.id,
+      title: clickInfo.event.title,
+      start: clickInfo.event.startStr,
+      end: clickInfo.event.endStr,
+      participants: [], 
+    };
+    
+    setSelectedEvent(clickedEvent);
+    form.setFieldsValue({
+      title: clickedEvent.title,
+      participants: [], 
+    });
     setModalVisible(true);
   };
 
-  // Debounce function to delay the execution
   const debouncedEventUpdate = useCallback(debounce(async (event: ScheduleEvent) => {
-    // Implementation of API call to update the event in the backend
-    console.log('Event updated:', event); // Replace with actual API call
-  }, 1000), []); // 1000 ms delay
+    
+  }, 1000), []);
 
   const handleEventDrop = (event: EventApi) => {
-    // Prepare the updated event data
     const updatedEvent: ScheduleEvent = {
       id: event.id,
       title: event.title,
@@ -72,23 +86,32 @@ const ScheduleManager: React.FC = () => {
       end: event.endStr,
     };
 
-    // Call the debounced function
     debouncedEventUpdate(updatedEvent);
-
-    // Update the event locally (optional, could await API update)
-    setEvents((prevEvents) =>
-      prevEvents.map((evt) => (evt.id === event.id ? updatedEvent : evt)),
-    );
+    setEvents((prevEvents) => prevEvents.map((evt) => (evt.id === event.id ? updatedEvent : evt)));
   };
 
   const handleOk = () => {
-    setModalVisible(false);
+    if (selectedEvent) {
+      
+      form.validateFields().then((values) => {
+        const updatedEvent: ScheduleEvent = {
+          ...selectedEvent,
+          title: values.title,
+          participants: values.participants,
+        };
+        setEvents((prevEvents) => prevEvents.map((evt) => (evt.id === updatedEvent.id ? updatedEvent : evt)));
+        setSelectedEvent(null); 
+        setModalVisible(false); 
+      });
+    }
   };
 
   const handleCancel = () => {
     setModalVisible(false);
+    setSelectedEvent(null); 
   };
 
+  
   const eventRender = (eventContent: EventContentArg) => {
     return (
       <>
@@ -111,28 +134,27 @@ const ScheduleManager: React.FC = () => {
         eventClick={onEventClick}
         eventContent={eventRender}
         eventDrop={(eventDropInfo) => handleEventDrop(eventDropInfo.event)}
+        select={onEventAdded}
       />
-      {selectedEvent && (
-        <Modal
-          title="Edit Event"
-          visible={modalVisible}
-          onOk={handleOk}
-          onCancel={handleCancel}
-        >
-          <Form layout="vertical">
-            <Form.Item label="Event Title">
-              <Input defaultValue={selectedEvent.title} />
-            </Form.Item>
-            <Form.Item label="Participants">
-              <Select mode="multiple" placeholder="Select participants">
-                {participants.map((p) => (
-                  <Option key={p.email} value={p.email}>{p.name}</Option>
-                ))}
-              </Select>
-            </Form.Item>
-          </Form>
-        </Modal>
-      )}
+      <Modal
+        title="Edit Event"
+        visible={modalVisible}
+        onOk={handleOk}
+        onCancel={handleCancel}
+      >
+        <Form form={form} layout="vertical">
+          <Form.Item name="title" label="Event Title" rules={[{ required: true, message: 'Please input the title of the event!' }]}>
+            <Input />
+          </Form.Item>
+          <Form.Item name="participants" label="Participants">
+            <Select mode="multiple" placeholder="Select participants">
+              {participants.map((p) => (
+                <Option key={p.email} value={p.email}>{p.name}</Option>
+              ))}
+            </Select>
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   );
 };
