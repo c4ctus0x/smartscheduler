@@ -14,17 +14,37 @@ interface ScheduleContextType {
   addSchedule: (newSchedule: Schedule) => void;
 }
 
+interface ErrorResponse {
+  message: string;
+  details?: string;
+}
+
 const ScheduleContext = createContext<ScheduleContextType | undefined>(undefined);
 
 const ScheduleProvider: React.FC = ({ children }) => {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
+
+  const errorHandler = (error: any, defaultMessage: string): ErrorResponse => {
+    if (axios.isAxiosError(error)) {
+      return {
+        message: error.response?.data.message || defaultMessage,
+        details: error.response?.data.details || 'No details provided'
+      };
+    } else {
+      return {
+        message: defaultMessage,
+        details: error.message || 'No details available'
+      };
+    }
+  };
 
   const fetchSchedules = async () => {
     try {
       const response = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/schedules`);
       setSchedules(response.data);
     } catch (error) {
-      console.error('Failed to fetch schedules', error);
+      const { message, details } = errorHandler(error, 'Failed to fetch schedules');
+      console.error(message, details);
     }
   };
 
@@ -36,7 +56,8 @@ const ScheduleProvider: React.FC = ({ children }) => {
       );
       setSchedules(updatedSchedules);
     } catch (error) {
-      console.error('Failed to update schedule', error);
+      const { message, details } = errorHandler(error, 'Failed to update schedule');
+      console.error(message, details);
     }
   };
 
@@ -45,7 +66,8 @@ const ScheduleProvider: React.FC = ({ children }) => {
       const response = await axios.post(`${process.env.REACT_APP_BACKEND_URL}/schedules`, newSchedule);
       setSchedules(prevSchedules => [...prevSchedules, response.data]);
     } catch (error) {
-      console.error('Failed to add schedule', error);
+      const { message, details } = errorHandler(error, 'Failed to add schedule');
+      console.error(message, details);
     }
   };
 
@@ -58,6 +80,9 @@ const ScheduleProvider: React.FC = ({ children }) => {
           schedule.id === updatedSchedule.id ? updatedSchedule : schedule
         )
       );
+    };
+    eventSource.onerror = (error) => {
+      console.error('EventSource failed:', error);
     };
 
     return () => {
