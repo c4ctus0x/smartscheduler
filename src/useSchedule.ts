@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 
 interface Schedule {
   id: string;
@@ -24,27 +24,31 @@ const ScheduleContext = createContext<ScheduleContextType | undefined>(undefined
 const ScheduleProvider: React.FC = ({ children }) => {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
 
-  const errorHandler = (error: any, defaultMessage: string): ErrorResponse => {
+  const errorHandler = (error: unknown, defaultMessage: string): ErrorResponse => {
+    let errMsg: string;
+    let errDetails: string;
+
     if (axios.isAxiosError(error)) {
-      return {
-        message: error.response?.data.message || defaultMessage,
-        details: error.response?.data.details || 'No details provided'
-      };
+      errMsg = error.response?.data.message || defaultMessage;
+      errDetails = error.response?.data.details || 'No details provided';
+    } else if (error instanceof Error) {
+      errMsg = defaultMessage;
+      errDetails = error.message;
     } else {
-      return {
-        message: defaultMessage,
-        details: error.message || 'No details available'
-      };
+      errMsg = defaultMessage;
+      errDetails = 'No details available';
     }
+
+    console.error(errMsg, errDetails);
+    return { message: errMsg, details: errDetails };
   };
 
   const fetchSchedules = async () => {
     try {
-      const response = await axios.get(`${process.env.REACT_APP_BACKEND_URL}/schedules`);
+      const response = await axios.get<Schedule[]>(`${process.env.REACT_APP_BACKEND_URL}/schedules`);
       setSchedules(response.data);
     } catch (error) {
-      const { message, details } = errorHandler(error, 'Failed to fetch schedules');
-      console.error(message, details);
+      errorHandler(error, 'Failed to fetch schedules');
     }
   };
 
@@ -56,8 +60,7 @@ const ScheduleProvider: React.FC = ({ children }) => {
       );
       setSchedules(updatedSchedules);
     } catch (error) {
-      const { message, details } = errorHandler(error, 'Failed to update schedule');
-      console.error(message, details);
+      errorHandler(error, 'Failed to update schedule');
     }
   };
 
@@ -66,23 +69,22 @@ const ScheduleProvider: React.FC = ({ children }) => {
       const response = await axios.post(`${process.env.REACT_APP_BACKEND_URL}/schedules`, newSchedule);
       setSchedules(prevSchedules => [...prevSchedules, response.data]);
     } catch (error) {
-      const { message, details } = errorHandler(error, 'Failed to add schedule');
-      console.error(message, details);
+      errorHandler(error, 'Failed to add schedule');
     }
   };
 
   useEffect(() => {
     const eventSource = new EventSource(`${process.env.REACT_APP_BACKEND_URL}/schedules/events`);
     eventSource.onmessage = (event) => {
-      const updatedSchedule = JSON.parse(event.data);
+      const updatedSchedule: Schedule = JSON.parse(event.data);
       setSchedules(currentSchedules =>
         currentSchedules.map(schedule =>
           schedule.id === updatedSchedule.id ? updatedSchedule : schedule
         )
       );
     };
-    eventSource.onerror = (error) => {
-      console.error('EventSource failed:', error);
+    eventSource.onerror = () => {
+      console.error('EventSource failed');
     };
 
     return () => {
