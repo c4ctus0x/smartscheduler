@@ -26,6 +26,21 @@ const readEvent = (eventId) => {
     return event;
 };
 
+const filterEvents = (criteria) => {
+    const filteredEvents = db.events.filter(event => {
+        let isMatch = true;
+        if (criteria.date) {
+            isMatch = isMatch && event.date === criteria.date;
+        }
+        if (criteria.keyword) {
+            isMatch = isMatch && event.title.includes(criteria.keyword);
+        }
+        return isMatch;
+    });
+    logToConsole(`${filteredEvents.length} events found matching criteria.`);
+    return filteredEvents;
+};
+
 const updateEvent = (eventId, newEventData) => {
     const eventIndex = db.events.findIndex(event => event.id === eventId);
     if (eventIndex !== -1) {
@@ -70,6 +85,18 @@ const checkForConflicts = (proposedEvent) => {
     return hasConflict;
 };
 
+const notifyUpcomingEvents = () => {
+    const now = new Date();
+    const upcomingEvents = db.events.filter(event => {
+        const eventDate = new Date(event.date + 'T' + event.startTime);
+        const diffHours = (eventDate - now) / (1000 * 60 * 60);
+        return diffHours >= 0 && diffHours <= 24; // Events within the next 24 hours
+    });
+    upcomingEvents.forEach(event => {
+        logToConsole(`Upcoming event: ${event.title} at ${event.date}, ${event.startTime}`);
+    });
+};
+
 const saveDB = () => {
     fs.writeFileSync(DB_FILE, JSON.stringify(db), 'utf8');
     logToConsole('Database saved.');
@@ -86,5 +113,7 @@ module.exports = {
     deleteEvent,
     updateSettings,
     getSettings,
-    checkForConflicts
+    checkForConflicts,
+    filterEvents,
+    notifyUpcomingEvents // Expose new functionality
 };
