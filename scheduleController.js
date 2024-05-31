@@ -1,119 +1,120 @@
 const fs = require('fs');
-const { v4: uuidv4 } = require('uuid');
+const { v4: generateUniqueId } = require('uuid');
 
-const DB_FILE = './store.json';
-let db = {};
-if (fs.existsSync(DB_FILE)) {
-    db = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
-    logToConsole('Database loaded successfully.');
+const DATABASE_FILE_PATH = './store.json';
+let databaseStorage = {};
+
+if (fs.existsSync(DATABASE_FILE_PATH)) {
+    databaseStorage = JSON.parse(fs.readFileSync(DATABASE_FILE_PATH, 'utf8'));
+    displayLog('Database loaded successfully.');
 } else {
-    db = { events: [], settings: {} };
-    fs.writeFileSync(DB_FILE, JSON.stringify(db), 'utf8');
-    logToConsole('No existing database found. Initialized a new one.');
+    databaseStorage = { events: [], settings: {} };
+    fs.writeFileSync(DATABASE_FILE_PATH, JSON.stringify(databaseStorage), 'utf8');
+    displayLog('No existing database found. Initialized a new one.');
 }
 
-const createEvent = (event) => {
-    event.id = uuidv4();
-    db.events.push(event);
-    saveDB();
-    logToConsole(`Event created: ${event.id}`);
+const createNewEvent = (eventDetails) => {
+    eventDetails.id = generateUniqueId();
+    databaseStorage.events.push(eventDetails);
+    persistDatabase();
+    displayLog(`Event created: ${eventDetails.id}`);
+    return eventDetails;
+};
+
+const fetchEventById = (eventId) => {
+    const event = databaseStorage.events.find(event => event.id === eventId);
+    displayLog(event ? `Event read: ${eventId}` : `Event not found: ${eventId}`);
     return event;
 };
 
-const readEvent = (eventId) => {
-    const event = db.events.find(event => event.id === eventId);
-    logToConsole(event ? `Event read: ${eventId}` : `Event not found: ${eventId}`);
-    return event;
-};
-
-const filterEvents = (criteria) => {
-    const filteredEvents = db.events.filter(event => {
-        let isMatch = true;
-        if (criteria.date) {
-            isMatch = isMatch && event.date === criteria.date;
+const searchEventsByCriteria = (searchCriteria) => {
+    const matchedEvents = databaseStorage.events.filter(event => {
+        let doesMatchCriteria = true;
+        if (searchCriteria.date) {
+            doesMatchCriteria = doesMatchCriteria && event.date === searchCriteria.date;
         }
-        if (criteria.keyword) {
-            isMatch = isMatch && event.title.includes(criteria.keyword);
+        if (searchCriteria.keyword) {
+            doesMatchCriteria = doesMatchCriteria && event.title.includes(searchCriteria.keyword);
         }
-        return isMatch;
+        return doesMatchCriteria;
     });
-    logToConsole(`${filteredEvents.length} events found matching criteria.`);
-    return filteredEvents;
+    displayLog(`${matchedEvents.length} events found matching criteria.`);
+    return matchedEvents;
 };
 
-const updateEvent = (eventId, newEventData) => {
-    const eventIndex = db.events.findIndex(event => event.id === eventId);
+const modifyEventDetails = (eventId, updatedEventData) => {
+    const eventIndex = databaseStorage.events.findIndex(event => event.id === eventId);
     if (eventIndex !== -1) {
-        db.events[eventIndex] = { ...db.events[eventIndex], ...newEventData };
-        saveDB();
-        logToConsole(`Event updated: ${eventId}`);
-        return db.events[eventIndex];
+        databaseStorage.events[eventIndex] = { ...databaseStorage.events[eventIndex], ...updatedEventData };
+        persistDatabase();
+        displayLog(`Event updated: ${eventId}`);
+        return databaseStorage.events[eventIndex];
     }
-    logToConsole(`Event not found for update: ${eventId}`);
+    displayLog(`Event not found for update: ${eventId}`);
     return null;
 };
 
-const deleteEvent = (eventId) => {
-    const eventIndex = db.events.findIndex(event => event.id === eventId);
+const removeEventById = (eventId) => {
+    const eventIndex = databaseStorage.events.findIndex(event => event.id === eventId);
     if (eventIndex !== -1) {
-        const [deletedEvent] = db.events.splice(eventIndex, 1);
-        saveDB();
-        logToConsole(`Event deleted: ${eventId}`);
+        const [deletedEvent] = databaseStorage.events.splice(eventIndex, 1);
+        persistDatabase();
+        displayLog(`Event deleted: ${eventId}`);
         return deletedEvent;
     }
-    logToConsole(`Event not found for deletion: ${eventId}`);
+    displayLog(`Event not found for deletion: ${eventId}`);
     return null;
 };
 
-const updateSettings = (newSettings) => {
-    db.settings = { ...db.settings, ...newSettings };
-    saveDB();
-    logToConsole('Settings updated.');
-    return db.settings;
+const applyNewSettings = (settings) => {
+    databaseStorage.settings = { ...databaseStorage.settings, ...settings };
+    persistDatabase();
+    displayLog('Settings updated.');
+    return databaseStorage.settings;
 };
 
-const getSettings = () => {
-    logToConsole('Settings retrieved.');
-    return db.settings;
+const getExistingSettings = () => {
+    displayLog('Settings retrieved.');
+    return databaseStorage.settings;
 };
 
-const checkForConflicts = (proposedEvent) => {
-    const hasConflict = db.events.some(event => {
-        return event.date === proposedEvent.date && !(event.endTime <= proposedEvent.startTime || event.startTime >= proposedEvent.endTime);
+const detectEventConflicts = (eventProposal) => {
+    const hasConflict = databaseStorage.events.some(event => {
+        return event.date === eventProposal.date && !(event.endTime <= eventProposal.startTime || event.startTime >= eventProposal.endTime);
     });
-    logToConsole(hasConflict ? 'Conflict detected for proposed event.' : 'No conflict detected for proposed event.');
+    displayLog(hasConflict ? 'Conflict detected for proposed event.' : 'No conflict detected for proposed event.');
     return hasConflict;
 };
 
-const notifyUpcomingEvents = () => {
-    const now = new Date();
-    const upcomingEvents = db.events.filter(event => {
-        const eventDate = new Date(event.date + 'T' + event.startTime);
-        const diffHours = (eventDate - now) / (1000 * 60 * 60);
-        return diffHours >= 0 && diffHours <= 24; // Events within the next 24 hours
+const alertForUpcomingEvents = () => {
+    const currentTime = new Date();
+    const imminentEvents = databaseStorage.events.filter(event => {
+        const eventStartDateTime = new Date(event.date + 'T' + event.startTime);
+        const hoursTillEvent = (eventStartDateTime - currentTime) / (1000 * 60 * 60);
+        return hoursTillEvent >= 0 && hoursTillEvent <= 24; // Events within the next 24 hours
     });
-    upcomingEvents.forEach(event => {
-        logToConsole(`Upcoming event: ${event.title} at ${event.date}, ${event.startTime}`);
+    imminentEvents.forEach(event => {
+        displayLog(`Upcoming event: ${event.title} at ${event.date}, ${event.startTime}`);
     });
 };
 
-const saveDB = () => {
-    fs.writeFileSync(DB_FILE, JSON.stringify(db), 'utf8');
-    logToConsole('Database saved.');
+const persistDatabase = () => {
+    fs.writeFileSync(DATABASE_FILE_PATH, JSON.stringify(databaseStorage), 'utf8');
+    displayLog('Database saved.');
 };
 
-const logToConsole = (message) => {
+const displayLog = (message) => {
     console.log(`[SmartScheduler] ${message}`);
 };
 
 module.exports = {
-    createEvent,
-    readEvent,
-    updateEvent,
-    deleteEvent,
-    updateSettings,
-    getSettings,
-    checkForConflicts,
-    filterEvents,
-    notifyUpcomingEvents // Expose new functionality
+    createNewEvent,
+    fetchEventById,
+    modifyEventDetails,
+    removeEventById,
+    applyNewSettings,
+    getExistingSettings,
+    detectEventConflicts,
+    searchEventsByCriteria,
+    alertForUpcomingEvents // Expose new functionality
 };
