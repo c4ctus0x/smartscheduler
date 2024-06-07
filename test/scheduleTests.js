@@ -11,36 +11,36 @@ before((done) => {
   done();
 });
 
-describe('Scheduling Functionality Tests', function() {
+describe('Schedule Functionality Tests', function() {
   this.timeout(10000);
 
   afterEach(() => {
     sinon.restore();
   });
 
-  it('should successfully add a new schedule', async () => {
-    const newSchedule = createNewSchedule();
-    stubScheduleService(newSchedule);
+  it('add a new schedule successfully', async () => {
+    const validSchedule = generateNewSchedule();
+    mockScheduleService(validStringchedule);
 
-    const response = await postSchedule(newSchedule);
+    const response = await sendScheduleRequest(validSchedule);
 
-    assertScheduleResponse(response, 200, newSchedule);
+    validateScheduleResponse(response, 200, validSchedule);
   });
 
-  it('should reject a schedule with invalid time format', async () => {
-    const invalidSchedule = createInvalidSchedule();
+  it('reject an invalid time format in schedule', async () => {
+    const invalidTimeSchedule = generateInvalidTimeSchedule();
 
-    const response = await postSchedule(invalidSchedule);
+    const response = await sendScheduleRequest(invalidTimeSchedule);
 
     expect(response.status).to.equal(400);
     expect(response.body.message).to.equal('Invalid time format');
   });
 
-  it('should handle concurrent scheduling requests gracefully', async () => {
-    const [concurrentSchedule1, concurrentSchedule2] = createConcurrentSchedules();
+  it('gracefully handle multiple scheduling requests', async () => {
+    const [firstConcurrentSchedule, secondConcurrentSchedule] = generateConcurrentSchedules();
     const responses = await Promise.all([
-      postSchedule(concurrentSchedule1),
-      postSchedule(concurrentSchedule2),
+      sendScheduleRequest(firstConcurrentSchedule),
+      sendScheduleRequest(secondConcurrentSchedule),
     ]);
 
     responses.forEach(response => {
@@ -48,25 +48,25 @@ describe('Scheduling Functionality Tests', function() {
     });
   });
 
-  it('should not allow scheduling in the past', async () => {
-    const pastSchedule = createPastSchedule();
+  it('prevent scheduling in the past', async () => {
+    const pastTimeSchedule = generatePastTimeSchedule();
 
-    const response = await postSchedule(pastSchedule);
+    const response = await sendScheduleRequest(pastTimeSchedule);
 
     expect(response.status).to.equal(400);
     expect(response.body.message).to.include('cannot schedule in the past');
   });
 
-  it('should ensure high load capacity', async () => {
-    const responses = await simulateHighLoad();
+  it('ensure functionality under high load', async () => {
+    const loadResponses = await simulateHighLoadScenario();
 
-    responses.forEach(response => {
+    loadResponses.forEach(response => {
       expect(response.status).to.equal(200);
     });
   });
 });
 
-function createNewSchedule() {
+function generateNewSchedule() {
   return {
     userId: 1,
     time: "2023-07-10T14:30:00Z",
@@ -74,7 +74,7 @@ function createNewSchedule() {
   };
 }
 
-function createInvalidSchedule() {
+function generateInvalidTimeSchedule() {
   return {
     userId: 1,
     time: "invalid-date",
@@ -82,7 +82,7 @@ function createInvalidSchedule() {
   };
 }
 
-function createConcurrentSchedules() {
+function generateConcurrentSchedules() {
   return [{
       userId: 1,
       time: "2023-07-10T15:00:00Z",
@@ -94,7 +94,7 @@ function createConcurrentSchedules() {
   }];
 }
 
-function createPastSchedule() {
+function generatePastTimeSchedule() {
   return {
     userId: 1,
     time: "2020-01-01T09:00:00Z",
@@ -102,10 +102,10 @@ function createPastSchedule() {
   };
 }
 
-function simulateHighLoad() {
+function simulateHighLoadScenario() {
   const promises = [];
   for (let i = 0; i < 100; i++) {
-    promises.push(postSchedule({
+    promises.push(sendScheduleRequest({
       userId: Math.floor(Math.random() * 100),
       time: new Date().toISOString(),
       description: "High load test event",
@@ -114,15 +114,15 @@ function simulateHighLoad() {
   return Promise.all(promises);
 }
 
-async function postSchedule(schedule) {
+async function sendScheduleRequest(schedule) {
   return request(app).post('/schedule').send(schedule);
 }
 
-function stubScheduleService(schedule) {
+function mockScheduleService(schedule) {
   sinon.stub(scheduleService, 'addSchedule').returns(Promise.resolve(schedule));
 }
 
-function assertScheduleResponse(response, expectedStatus, schedule) {
+function validateScheduleResponse(response, expectedStatus, schedule) {
   expect(response.status).to.equal(expectedStatus);
-  expect(response.body).to.include(schedule);
+  expect(response.body).to.deep.include(schedule);
 }
