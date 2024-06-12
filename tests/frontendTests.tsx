@@ -6,7 +6,6 @@ import YourComponent from './YourComponent';
 process.env.REACT_APP_API_URL = 'http://example.com/api';
 
 describe('YourComponent', () => {
-
   it('should render correctly', () => {
     render(<YourComponent />);
     expect(screen.getByTestId('unique-element')).toBeInTheDocument();
@@ -19,7 +18,7 @@ describe('YourComponent', () => {
   });
 
   it('tests data binding', async () => {
-    render(<YourTemplateComponent initialValue="test" />);
+    render(<YourComponent initialValue="test" />);
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'changed value' } });
     expect(screen.getByRole('textbox')).toHaveValue('changed value');
   });
