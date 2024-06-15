@@ -11,7 +11,11 @@ describe('YourComponent', () => {
       render(<YourComponent />);
       expect(screen.getByTestId('unique-element')).toBeInTheDocument();
     } catch (error) {
-      console.error('Error rendering the component:', error);
+      if (error instanceof Error) {
+        console.error('Error rendering the component:', error.message);
+      } else {
+        console.error('An unknown error occurred while rendering the component.');
+      }
     }
   });
 
@@ -21,7 +25,11 @@ describe('YourComponent', () => {
       fireEvent.click(screen.getByText('Submit'));
       expect(screen.getByText('Loading...')).toBeInTheDocument();
     } catch (error) {
-      console.error('Error handling user interaction:', error);
+      if (error instanceof Error) {
+        console.error('Error handling user interaction:', error.message);
+      } else {
+        console.error('An unknown error occurred during user interaction.');
+      }
     }
   });
 
@@ -31,7 +39,11 @@ describe('YourComponent', () => {
       fireEvent.change(screen.getByRole('textbox'), { target: { value: 'changed value' } });
       expect(screen.getByRole('textbox')).toHaveValue('changed value');
     } catch (error) {
-      console.error('Error testing data binding:', error);
+      if (error instanceof Error) {
+        console.error('Error testing data binding:', error.message);
+      } else {
+        console.error('An unknown error occurred during data binding test.');
+      }
     }
   });
 
@@ -40,7 +52,11 @@ describe('YourComponent', () => {
       const { asFragment } = render(<YourComponent />);
       expect(asFragment()).toMatchSnapshot();
     } catch (error) {
-      console.error('Drror checking visual rendering accuracy:', error);
+      if (error instanceof Error) {
+        console.error('Error checking visual rendering accuracy:', error.message);
+      } else {
+        console.error('An unknown error occurred while checking visual rendering accuracy.');
+      }
     }
   });
 
