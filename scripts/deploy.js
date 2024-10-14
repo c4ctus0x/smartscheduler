@@ -59,6 +59,18 @@ const setupDatabase = () => {
   }
 };
 
+const backupDatabase = () => {
+  try {
+    console.log('Creating a database backup...');
+    const backupCommand = `mysqldump -u ${process.env.DB_USER} -p${process.env.DB_PASSWORD} ${process.env.DB_NAME} > backup.sql`;
+    runCommand(backupCommand);
+    console.log('Database backup created successfully.');
+  } catch (error) {
+    console.error('Failed to backup the database.', error);
+    process.exit(1);
+  }
+};
+
 const verifyEnvironmentVariables = () => {
   try {
     const requiredEnv = ['DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME'];
@@ -76,6 +88,7 @@ const verifyEnvironmentVariables = () => {
 const deploySmartScheduler = async () => {
   try {
     verifyEnvironmentVariables();
+    backupDatabase(); // Backup database at the beginning of the deployment process
     cloneRepository();
     setupServer();
     setupDatabase();
